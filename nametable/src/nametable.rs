@@ -65,6 +65,26 @@ impl<'x> NameTable for StaticNameTable<'x> {
     fn parent<'a>(&'a self) -> Option<&Box<NameTable + 'a>> { self.parent.as_ref()}
 }
 
+impl<'x> StaticNameTable<'x> {
+    pub fn new(names_: &'static str, name_offsets_ : &'static [usize]) -> Self {
+        return StaticNameTable {
+            initial_idx: 0usize,
+            names : names_,
+            name_offsets : name_offsets_,
+            parent : None
+        }
+    }
+
+    pub fn new_upon<ParentTableType: 'x + NameTable>(names_: &'static str, name_offsets_ : &'static [usize], parent: ParentTableType) -> Self {
+        return StaticNameTable {
+            initial_idx: parent.initial_local() + parent.size_local(),
+            names : names_,
+            name_offsets : name_offsets_,
+            parent : Some(Box::new(parent)),
+        }
+    }
+}
+
 pub struct DynamicNameTable<'a> {
     initial_idx: usize,
     names : Box<Vec<String>>,
@@ -79,11 +99,28 @@ impl<'x> NameTable for DynamicNameTable<'x> {
 }
 
 impl<'x> DynamicNameTable<'x> {
+    pub fn new() -> Self {
+        return DynamicNameTable {
+            initial_idx: 0usize,
+            names : Box::new(Vec::new()),
+            parent : None
+        }
+    }
+
+    pub fn new_upon<ParentTableType: 'x + NameTable>(parent: ParentTableType) -> Self {
+        return DynamicNameTable {
+            initial_idx: parent.initial_local() + parent.size_local(),
+            names : Box::new(Vec::new()),
+            parent : Some(Box::new(parent)),
+        }
+    }
+
     fn intern(&mut self, name: &str) -> usize {
         self.find(name).or_else(|| Some({
             self.names.as_mut().push(name.to_owned());
             self.initial_idx + self.names.len() - 1
         })).unwrap()
     }
+
 }
 

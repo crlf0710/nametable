@@ -1,7 +1,7 @@
+#![allow(dead_code)]
+
 extern crate nametable;
 
 #[cfg(test)]
-mod tests {
-    use nametable::*;
+mod static_tests;
 
-}

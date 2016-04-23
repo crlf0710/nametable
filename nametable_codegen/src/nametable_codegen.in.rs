@@ -4,12 +4,13 @@ use syntax::codemap::{Span, respan, dummy_spanned, DUMMY_SP};
 use syntax::ptr::P;
 
 use syntax::ast::{TokenTree, Name, Delimited, SyntaxContext, Expr, Ident, StrStyle, LitKind, Item, Visibility,
-                  ItemKind, Generics, EnumDef, VariantData, Variant_, DUMMY_NODE_ID};
+                  ItemKind, Generics, EnumDef, VariantData, Variant_,
+                  Path, PathSegment, PathParameters, DUMMY_NODE_ID};
 
 use syntax::ext::base::{ExtCtxt, MacResult, MacEager};
 use syntax::ext::build::AstBuilder;
 
-use syntax::parse::parser::Parser;
+use syntax::parse::parser::{Parser, PathParsingMode};
 use syntax::parse::token::{Token, DelimToken, Lit,
                            intern, intern_and_get_ident};
 use syntax::parse::token::keywords::Keyword;
@@ -76,16 +77,46 @@ fn to_pub_item_ptr(item: P<Item>) -> P<Item> {
     item.map(to_pub_item)
 }
 
+fn add_suffix_to_path(prefix: &Path, suffix: Ident) -> Path {
+    let mut result = prefix.clone();
+    result.segments.push(
+        PathSegment {
+            identifier: suffix,
+            parameters: PathParameters::none(),
+        }
+    );
+    result
+}
+
+fn add_prefix_to_path(prefix: Ident, suffix: &Path) -> Path {
+    let mut result = suffix.clone();
+    result.segments.insert(0,
+        PathSegment {
+            identifier: prefix,
+            parameters: PathParameters::none(),
+        }
+    );
+    result
+}
+
 fn generate_nametable_item<'cx>(
     cx: &'cx mut ExtCtxt,
     sp: Span,
     sc: SyntaxContext,
     artifact_name: Name,
-    base_artifact_name: Option<Name>,
+    base_artifact_path: Option<Path>,
     artifact_items: Vec<(Name, Name)>) -> P<Item> {
 
     let mod_attributes = Vec::new();
     let mut mod_items = Vec::new();
+
+    let base_artifact_path = base_artifact_path.map(
+        |path: Path| if path.global {
+            path
+        } else {
+            add_prefix_to_path(Ident::new(intern("super"), sc), &path)
+        }
+    );
 
     {
         // use
@@ -96,10 +127,22 @@ fn generate_nametable_item<'cx>(
                 StaticHashedNameTable, NameTableIdx};).unwrap());
     }
 
+
     {
         // const INITIAL
-        let initial_value = 0usize;
-        mod_items.push(quote_item!(cx, const INITIAL : usize = $initial_value; ).unwrap());
+        if let Some(ref path) = base_artifact_path {
+            mod_items.push(cx.item_use_simple(DUMMY_SP, Visibility::Inherited, path.clone()));
+//            mod_items.push(quote_item!(cx, use $path; ).unwrap());
+            let base_artifact_initial = add_suffix_to_path(path, Ident::new(intern("INITIAL"), sc));
+            let base_artifact_count = add_suffix_to_path(path, Ident::new(intern("COUNT"), sc));
+            //            mod_items.push(quote_item!(cx, const INITIAL : usize = $path::INITIAL + $path::COUNT; ).unwrap());
+            mod_items.push(quote_item!(cx, pub const INITIAL : usize = $base_artifact_initial + $base_artifact_count; ).unwrap());
+        } else {
+            mod_items.push(quote_item!(cx, pub const INITIAL : usize = 0usize; ).unwrap());
+    }
+
+        let count = artifact_items.len();
+        mod_items.push(quote_item!(cx, pub const COUNT : usize = $count; ).unwrap());
     }
 
     {
@@ -194,13 +237,28 @@ fn generate_nametable_item<'cx>(
     }
 
     {
+        let base_artifact_new = base_artifact_path.map(|path| {
+            add_suffix_to_path(&path, Ident::new(intern("new"), sc))
+        });
         //functions
-        mod_items.push(quote_item!(
+        mod_items.push(match base_artifact_new {
+            Some(ref path) => {
+                quote_item!(
             cx,
             pub fn new<'x>() -> StaticHashedNameTable<'x> {
+                        StaticHashedNameTable::new_upon(NAME_DATA, INDEX_DATA, HASH_DATA, $path())
+                    }
+                )
+            },
+            None => {
+                quote_item!(
+                    cx,
+                    pub fn new<'x>() -> StaticHashedNameTable<'x> {
                 StaticHashedNameTable::new(NAME_DATA, INDEX_DATA, HASH_DATA)
             }
-        ).unwrap());
+                )
+            }
+        }.unwrap());
 
         mod_items.push(quote_item!(
             cx,
@@ -254,14 +312,13 @@ fn process_nametables<'cx>(cx: &'cx mut ExtCtxt, sp: Span, mut parser: Parser) -
             cx.span_fatal(parser.span, "expected nametable name here.");
         };
 
-        let base_artifact_name = if parser.eat(&Token::Colon) {
-            Some(if let Token::Ident(base_artifact_name, _) = parser.token {
-                let _ = parser.bump();
-                base_artifact_name.name
+        let base_artifact_path = if parser.eat(&Token::Colon) {
+            let result = parser.parse_path(PathParsingMode::NoTypesAllowed);
+            match result{
+                Ok(path) => Some(path),
+                _ => cx.span_fatal(parser.span, "expected base nametable name here."),
+            }
             } else {
-                cx.span_fatal(parser.span, "expected base nametable name here.");
-            })
-        } else {
             None
         };
 
@@ -296,7 +353,7 @@ fn process_nametables<'cx>(cx: &'cx mut ExtCtxt, sp: Span, mut parser: Parser) -
             cx.span_fatal(parser.span, "expected close brace here.");
         }
 
-        result.push(generate_nametable_item(cx, sp, syntax_ctx, artifact_name, base_artifact_name, artifact_items));
+        result.push(generate_nametable_item(cx, sp, syntax_ctx, artifact_name, base_artifact_path, artifact_items));
     }
 
     if &parser.token != &Token::Eof {

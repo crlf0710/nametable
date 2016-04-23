@@ -237,28 +237,48 @@ fn generate_nametable_item<'cx>(
     }
 
     {
-        let base_artifact_new = base_artifact_path.map(|path| {
-            add_suffix_to_path(&path, Ident::new(intern("new"), sc))
-        });
         //functions
-        mod_items.push(match base_artifact_new {
+        match base_artifact_path {
             Some(ref path) => {
-                quote_item!(
-            cx,
-            pub fn new<'x>() -> StaticHashedNameTable<'x> {
-                        StaticHashedNameTable::new_upon(NAME_DATA, INDEX_DATA, HASH_DATA, $path())
-                    }
-                )
-            },
-            None => {
-                quote_item!(
+                let base_artifact_new = add_suffix_to_path(&path, Ident::new(intern("new"), sc));
+                mod_items.push(
+                    quote_item!(
+                        cx,
+                        pub fn new<'x>() -> StaticHashedNameTable<'x> {
+                            StaticHashedNameTable::new_upon(NAME_DATA, INDEX_DATA, HASH_DATA, $base_artifact_new())
+                        }).unwrap());
+
+                mod_items.push(quote_item!(
                     cx,
-                    pub fn new<'x>() -> StaticHashedNameTable<'x> {
-                StaticHashedNameTable::new(NAME_DATA, INDEX_DATA, HASH_DATA)
+                    pub fn new_dynamic<'x>() -> DynamicNameTable<'x> {
+                        DynamicNameTable::new_upon(
+                            StaticHashedNameTable::new_upon(NAME_DATA, INDEX_DATA, HASH_DATA, $base_artifact_new()))
+                    }
+                ).unwrap());
+
+                mod_items.push(quote_item!(
+                    cx,
+                    pub fn new_plain_<'x>() -> StaticNameTable<'x> {
+                        StaticNameTable::new_upon(NAME_DATA, INDEX_DATA, $base_artifact_new())
+                    }
+                ).unwrap());
+
+                mod_items.push(quote_item!(
+                    cx,
+                    pub fn new_dynamic_plain<'x>() -> DynamicNameTable<'x> {
+                        DynamicNameTable::new_upon(
+                            StaticNameTable::new_upon(NAME_DATA, INDEX_DATA, $base_artifact_new()))
+                    }
+                ).unwrap());
+
             }
-                )
-            }
-        }.unwrap());
+            None => {
+                mod_items.push(quote_item!(
+                        cx,
+                        pub fn new<'x>() -> StaticHashedNameTable<'x> {
+                            StaticHashedNameTable::new(NAME_DATA, INDEX_DATA, HASH_DATA)
+                        }
+                ).unwrap());
 
         mod_items.push(quote_item!(
             cx,
@@ -282,6 +302,12 @@ fn generate_nametable_item<'cx>(
                     StaticNameTable::new(NAME_DATA, INDEX_DATA))
             }
         ).unwrap());
+    }
+        }
+
+        let base_artifact_new = base_artifact_path.map(|path| {
+            add_suffix_to_path(&path, Ident::new(intern("new"), sc))
+        });
     }
 
     let result = cx.item_mod(sp, sp, Ident::new(artifact_name, sc), mod_attributes, mod_items);

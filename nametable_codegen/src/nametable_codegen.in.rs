@@ -16,9 +16,11 @@ use syntax::parse::token::keywords::Keyword;
 
 use syntax::util::small_vector::SmallVector;
 
-struct MyLiteralArray<T>(Vec<T>);
+use nametable::name_hash;
 
+struct MyLiteralArray<T>(Vec<T>);
 struct MyLiteralString(String);
+struct MyLiteralTuple2<T1,T2>(T1,T2);
 
 use quasi::ToTokens;
 use std::rc::Rc;
@@ -48,6 +50,23 @@ impl ToTokens for MyLiteralString {
 	}
 }
 
+impl<T1: ToTokens, T2: ToTokens> ToTokens for MyLiteralTuple2<T1, T2> {
+    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
+        let mut r = vec![];
+        let mut r_inner = vec![];
+        r_inner.append(&mut self.0.to_tokens(_cx));
+        r_inner.push(TokenTree::Token(DUMMY_SP, Token::Comma));
+        r_inner.append(&mut self.1.to_tokens(_cx));
+        r.push(TokenTree::Delimited(DUMMY_SP, Rc::new(Delimited {
+            delim: DelimToken::Paren,
+            open_span: DUMMY_SP,
+            tts: r_inner,
+            close_span: DUMMY_SP,
+        })));
+        r
+    }
+}
+
 fn to_pub_item(mut item: Item) -> Item {
     item.vis = Visibility::Public;
     item
@@ -70,7 +89,11 @@ fn generate_nametable_item<'cx>(
 
     {
         // use
-        mod_items.push(quote_item!(cx, use ::nametable::{NameTable, StaticNameTable, DynamicNameTable, NameTableIdx};).unwrap());
+        mod_items.push(quote_item!(
+            cx,
+            use ::nametable::{
+                NameTable, StaticNameTable, DynamicNameTable,
+                StaticHashedNameTable, NameTableIdx};).unwrap());
     }
 
     {
@@ -100,8 +123,12 @@ fn generate_nametable_item<'cx>(
 
         let derive_attribute = cx.attribute(
             sp, cx.meta_list(sp, intern_and_get_ident("derive"),
-                             vec!(cx.meta_word(sp, intern_and_get_ident("Copy")), cx.meta_word(sp, intern_and_get_ident("Clone")))));
-        mod_items.push(to_pub_item_ptr(cx.item(sp, ident_names, vec!(repr_attribute, derive_attribute), ItemKind::Enum(enumdef, Generics::default()))));
+                             vec!(cx.meta_word(sp, intern_and_get_ident("Copy")),
+                                  cx.meta_word(sp, intern_and_get_ident("Clone")))));
+        mod_items.push(to_pub_item_ptr(
+            cx.item(sp, ident_names,
+                    vec!(repr_attribute, derive_attribute),
+                    ItemKind::Enum(enumdef, Generics::default()))));
     }
 
     {
@@ -118,10 +145,38 @@ fn generate_nametable_item<'cx>(
         //data
         let mut name_data : MyLiteralString = MyLiteralString(String::new());
         let mut index_data : MyLiteralArray<usize> = MyLiteralArray(vec!(0));
-        for (_,&(_, value)) in artifact_items.iter().enumerate() {
+        let mut hash_data : MyLiteralArray<MyLiteralTuple2<u64,usize>> = MyLiteralArray(vec!());
+        for (idx,&(_, value)) in artifact_items.iter().enumerate() {
             name_data.0.push_str(&*value.as_str());
             index_data.0.push(name_data.0.len());
+            hash_data.0.push(MyLiteralTuple2(name_hash(&*value.as_str()),idx));
         }
+        hash_data.0.sort_by(|&MyLiteralTuple2(a, _), &MyLiteralTuple2(b, _)| a.cmp(&b));
+
+        fn detect_collision<T: PartialOrd + Copy>(arr: &[MyLiteralTuple2<T, usize>]) -> Option<(usize, usize)> {
+            if arr.len() == 0 {
+                return None;
+            }
+            let mut old_val = arr.get(0).unwrap().0;
+            for i in 1..arr.len() {
+                if arr.get(i).unwrap().0 == old_val {
+                    return Some((arr.get(i-1).unwrap().1, arr.get(i).unwrap().1));
+                }
+                old_val = arr.get(i).unwrap().0;
+            }
+            return None
+        }
+
+        match detect_collision(&hash_data.0) {
+            Some((a, b)) => {
+                println!(
+                    "nametable_macros: Hash collision happened between item index {:} and {:} for table `{:}'",
+                    a, b, &*artifact_name.as_str());
+                hash_data.0 = vec!();
+            },
+            None => ()
+        }
+
         mod_items.push(quote_item!(
             cx,
             const NAME_DATA : &'static str = $name_data;
@@ -130,20 +185,41 @@ fn generate_nametable_item<'cx>(
             cx,
             const INDEX_DATA : &'static [usize] = &$index_data;
         ).unwrap());
+
+        mod_items.push(quote_item!(
+            cx,
+            const HASH_DATA : &'static [(u64,usize)] = &$hash_data;
+        ).unwrap());
+
     }
 
     {
         //functions
         mod_items.push(quote_item!(
             cx,
-            pub fn new<'x>() -> StaticNameTable<'x> {
-                StaticNameTable::new(NAME_DATA, INDEX_DATA)
+            pub fn new<'x>() -> StaticHashedNameTable<'x> {
+                StaticHashedNameTable::new(NAME_DATA, INDEX_DATA, HASH_DATA)
             }
         ).unwrap());
 
         mod_items.push(quote_item!(
             cx,
             pub fn new_dynamic<'x>() -> DynamicNameTable<'x> {
+                DynamicNameTable::new_upon(
+                    StaticHashedNameTable::new(NAME_DATA, INDEX_DATA, HASH_DATA))
+            }
+        ).unwrap());
+
+        mod_items.push(quote_item!(
+            cx,
+            pub fn new_plain_<'x>() -> StaticNameTable<'x> {
+                StaticNameTable::new(NAME_DATA, INDEX_DATA)
+            }
+        ).unwrap());
+
+        mod_items.push(quote_item!(
+            cx,
+            pub fn new_dynamic_plain<'x>() -> DynamicNameTable<'x> {
                 DynamicNameTable::new_upon(
                     StaticNameTable::new(NAME_DATA, INDEX_DATA))
             }

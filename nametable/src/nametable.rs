@@ -15,9 +15,9 @@ impl NameTableIdx for usize {
 }
 
 pub trait NameTable {
-    fn initial_local(&self) -> usize;
     fn parent<'a>(&'a self) -> Option<&Box<NameTable + 'a>>;
 
+    fn initial_local(&self) -> usize;
     fn len_local(&self) -> usize;
     fn at_local<'a>(&'a self, idx: usize) -> &'a str;
     fn find_local(&self, name: &str) -> Option<usize> {
@@ -186,8 +186,8 @@ impl<'x> StaticHashedNameTable<'x> {
         let result = self.hash_idxes.binary_search_by(|&(a, _)| a.cmp(&target));
         match result {
             Ok(val) => {
-                if self.at_local(val) == name {
-                    Some(val + self.initial_idx)
+                if self.at_local(self.hash_idxes[val].1) == name {
+                    Some(self.hash_idxes[val].1)
                 } else {
                     None
                 }

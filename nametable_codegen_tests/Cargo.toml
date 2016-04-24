@@ -1,0 +1,17 @@
+[package]
+name = "nametable_codegen_tests"
+version = "0.1.0"
+authors = ["CrLF0710 <crlf0710@gmail.com>"]
+build = "build.rs"
+
+[dependencies]
+nametable = { version = "*", path = "../nametable"}
+
+[build-dependencies]
+syntex = "*"
+syntex_syntax = "*"
+nametable_codegen = { version = "*", path = "../nametable_codegen"}
+
+[[test]]
+name = "test"
+path = "tests/tests.rs"

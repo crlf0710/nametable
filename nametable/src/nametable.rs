@@ -11,7 +11,9 @@ pub trait NameTableIdx {
 }
 
 impl NameTableIdx for usize {
-    fn to_index(&self) -> usize { *self }
+    fn to_index(&self) -> usize {
+        *self
+    }
 }
 
 pub trait NameTable {
@@ -26,23 +28,20 @@ pub trait NameTable {
                 return Some(i);
             }
         }
-        return None
+        return None;
     }
 
     fn len(&self) -> usize {
-        return self.len_local() +
-            self.parent().map_or(0usize, |parent_table| parent_table.len());
+        return self.len_local() + self.parent().map_or(0usize, |parent_table| parent_table.len());
     }
 
     fn at<'a>(&'a self, idx: usize) -> &'a str {
         let initial = self.initial_local();
         if idx >= initial {
-            return self.at_local(idx - initial)
-        }
-        else if let Some(parent_table) = self.parent().as_ref() {
+            return self.at_local(idx - initial);
+        } else if let Some(parent_table) = self.parent().as_ref() {
             &parent_table.at(idx)
-        }
-        else {
+        } else {
             panic!("access out of bound");
         }
     }
@@ -51,44 +50,55 @@ pub trait NameTable {
         let initial = self.initial_local();
         self.find_local(name).map(|idx| idx + initial).or_else(|| {
             if let Some(parent_table) = self.parent().as_ref() {
-                return parent_table.find(name)
+                return parent_table.find(name);
             }
-            return None
+            return None;
         })
     }
 }
 
 pub struct StaticNameTable<'a> {
     initial_idx: usize,
-    names : &'static str,
-    name_offsets : &'static [usize],
-    parent : Option<Box<NameTable + 'a>>,
+    names: &'static str,
+    name_offsets: &'static [usize],
+    parent: Option<Box<NameTable + 'a>>,
 }
 
 impl<'x> NameTable for StaticNameTable<'x> {
-    fn initial_local(&self) -> usize { self.initial_idx }
-    fn len_local(&self) -> usize { self.name_offsets.len() - 1}
-    fn at_local<'a>(&'a self, idx: usize) -> &'a str { &self.names[self.name_offsets[idx]..self.name_offsets[idx + 1]] }
-    fn parent<'a>(&'a self) -> Option<&Box<NameTable + 'a>> { self.parent.as_ref()}
+    fn initial_local(&self) -> usize {
+        self.initial_idx
+    }
+    fn len_local(&self) -> usize {
+        self.name_offsets.len() - 1
+    }
+    fn at_local<'a>(&'a self, idx: usize) -> &'a str {
+        &self.names[self.name_offsets[idx]..self.name_offsets[idx + 1]]
+    }
+    fn parent<'a>(&'a self) -> Option<&Box<NameTable + 'a>> {
+        self.parent.as_ref()
+    }
 }
 
 impl<'x> StaticNameTable<'x> {
-    pub fn new(names_: &'static str, name_offsets_ : &'static [usize]) -> Self {
+    pub fn new(names_: &'static str, name_offsets_: &'static [usize]) -> Self {
         return StaticNameTable {
             initial_idx: 0usize,
-            names : names_,
-            name_offsets : name_offsets_,
-            parent : None
-        }
+            names: names_,
+            name_offsets: name_offsets_,
+            parent: None,
+        };
     }
 
-    pub fn new_upon<ParentTableType: 'x + NameTable>(names_: &'static str, name_offsets_ : &'static [usize], parent: ParentTableType) -> Self {
+    pub fn new_upon<ParentTableType: 'x + NameTable>(names_: &'static str,
+                                                     name_offsets_: &'static [usize],
+                                                     parent: ParentTableType)
+                                                     -> Self {
         return StaticNameTable {
             initial_idx: parent.initial_local() + parent.len_local(),
-            names : names_,
-            name_offsets : name_offsets_,
-            parent : Some(Box::new(parent)),
-        }
+            names: names_,
+            name_offsets: name_offsets_,
+            parent: Some(Box::new(parent)),
+        };
     }
 
     pub fn index<T: NameTableIdx>(&'x self, idx: T) -> &'x str {
@@ -98,39 +108,51 @@ impl<'x> StaticNameTable<'x> {
 
 pub struct DynamicNameTable<'a> {
     initial_idx: usize,
-    names : Box<Vec<String>>,
-    parent : Option<Box<NameTable + 'a>>,
+    names: Box<Vec<String>>,
+    parent: Option<Box<NameTable + 'a>>,
 }
 
 impl<'x> NameTable for DynamicNameTable<'x> {
-    fn initial_local(&self) -> usize { self.initial_idx }
-    fn len_local(&self) -> usize { self.names.len() }
-    fn at_local<'a>(&'a self, idx: usize) -> &'a str { self.names[idx].as_str() }
-    fn parent<'a>(&'a self) -> Option<&Box<NameTable + 'a>> { self.parent.as_ref()}
+    fn initial_local(&self) -> usize {
+        self.initial_idx
+    }
+    fn len_local(&self) -> usize {
+        self.names.len()
+    }
+    fn at_local<'a>(&'a self, idx: usize) -> &'a str {
+        self.names[idx].as_str()
+    }
+    fn parent<'a>(&'a self) -> Option<&Box<NameTable + 'a>> {
+        self.parent.as_ref()
+    }
 }
 
 impl<'x> DynamicNameTable<'x> {
     pub fn new() -> Self {
         return DynamicNameTable {
             initial_idx: 0usize,
-            names : Box::new(Vec::new()),
-            parent : None
-        }
+            names: Box::new(Vec::new()),
+            parent: None,
+        };
     }
 
     pub fn new_upon<ParentTableType: 'x + NameTable>(parent: ParentTableType) -> Self {
         return DynamicNameTable {
             initial_idx: parent.initial_local() + parent.len_local(),
-            names : Box::new(Vec::new()),
-            parent : Some(Box::new(parent)),
-        }
+            names: Box::new(Vec::new()),
+            parent: Some(Box::new(parent)),
+        };
     }
 
     pub fn intern(&mut self, name: &str) -> usize {
-        self.find(name).or_else(|| Some({
-            self.names.as_mut().push(name.to_owned());
-            self.initial_idx + self.names.len() - 1
-        })).unwrap()
+        self.find(name)
+            .or_else(|| {
+                Some({
+                    self.names.as_mut().push(name.to_owned());
+                    self.initial_idx + self.names.len() - 1
+                })
+            })
+            .unwrap()
     }
 
     pub fn index<T: NameTableIdx>(&'x self, idx: T) -> &'x str {
@@ -141,36 +163,40 @@ impl<'x> DynamicNameTable<'x> {
 
 pub struct StaticHashedNameTable<'a> {
     initial_idx: usize,
-    names : &'static str,
-    name_offsets : &'static [usize],
-    hash_idxes : &'static [(u64, usize)],
-    parent : Option<Box<NameTable + 'a>>,
+    names: &'static str,
+    name_offsets: &'static [usize],
+    hash_idxes: &'static [(u64, usize)],
+    parent: Option<Box<NameTable + 'a>>,
 }
 
 impl<'x> StaticHashedNameTable<'x> {
-    pub fn new(names_: &'static str, name_offsets_ : &'static [usize],
-               hash_idxes_ : &'static [(u64, usize)]) -> Self {
+    pub fn new(names_: &'static str,
+               name_offsets_: &'static [usize],
+               hash_idxes_: &'static [(u64, usize)])
+               -> Self {
 
         return StaticHashedNameTable {
             initial_idx: 0usize,
-            names : names_,
-            name_offsets : name_offsets_,
-            hash_idxes : hash_idxes_,
-            parent : None
-        }
+            names: names_,
+            name_offsets: name_offsets_,
+            hash_idxes: hash_idxes_,
+            parent: None,
+        };
     }
 
-    pub fn new_upon<ParentTableType: 'x + NameTable>(
-        names_: &'static str, name_offsets_ : &'static [usize],
-        hash_idxes_ : &'static [(u64, usize)], parent: ParentTableType) -> Self {
+    pub fn new_upon<ParentTableType: 'x + NameTable>(names_: &'static str,
+                                                     name_offsets_: &'static [usize],
+                                                     hash_idxes_: &'static [(u64, usize)],
+                                                     parent: ParentTableType)
+                                                     -> Self {
 
         return StaticHashedNameTable {
             initial_idx: parent.initial_local() + parent.len_local(),
-            names : names_,
-            name_offsets : name_offsets_,
-            hash_idxes : hash_idxes_,
-            parent : Some(Box::new(parent)),
-        }
+            names: names_,
+            name_offsets: name_offsets_,
+            hash_idxes: hash_idxes_,
+            parent: Some(Box::new(parent)),
+        };
     }
 
     pub fn index<T: NameTableIdx>(&'x self, idx: T) -> &'x str {
@@ -191,21 +217,34 @@ impl<'x> StaticHashedNameTable<'x> {
                 } else {
                     None
                 }
-            },
+            }
             _ => None,
         }
     }
 
     fn find_local_fallback(&self, name: &str) -> Option<usize> {
-        for i in 0..self.len_local() { if self.at_local(i) == name { return Some(i); } } return None
+        for i in 0..self.len_local() {
+            if self.at_local(i) == name {
+                return Some(i);
+            }
+        }
+        return None;
     }
 }
 
 impl<'x> NameTable for StaticHashedNameTable<'x> {
-    fn initial_local(&self) -> usize { self.initial_idx }
-    fn len_local(&self) -> usize { self.name_offsets.len() - 1}
-    fn at_local<'a>(&'a self, idx: usize) -> &'a str { &self.names[self.name_offsets[idx]..self.name_offsets[idx + 1]] }
-    fn parent<'a>(&'a self) -> Option<&Box<NameTable + 'a>> { self.parent.as_ref()}
+    fn initial_local(&self) -> usize {
+        self.initial_idx
+    }
+    fn len_local(&self) -> usize {
+        self.name_offsets.len() - 1
+    }
+    fn at_local<'a>(&'a self, idx: usize) -> &'a str {
+        &self.names[self.name_offsets[idx]..self.name_offsets[idx + 1]]
+    }
+    fn parent<'a>(&'a self) -> Option<&Box<NameTable + 'a>> {
+        self.parent.as_ref()
+    }
 
     fn find_local(&self, name: &str) -> Option<usize> {
         if self.hash_enabled() {
@@ -215,5 +254,3 @@ impl<'x> NameTable for StaticHashedNameTable<'x> {
         }
     }
 }
-
-

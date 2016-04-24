@@ -7,7 +7,11 @@ enum NameEnum1 {
     THIRD = 2,
 }
 
-impl NameTableIdx for NameEnum1 { fn to_index(&self) -> usize { *self as usize } }
+impl NameTableIdx for NameEnum1 {
+    fn to_index(&self) -> usize {
+        *self as usize
+    }
+}
 
 #[repr(usize)]
 #[derive(Clone,Copy)]
@@ -17,13 +21,17 @@ enum NameEnum2 {
     SIXTH = 5,
 }
 
-impl NameTableIdx for NameEnum2 { fn to_index(&self) -> usize { *self as usize } }
+impl NameTableIdx for NameEnum2 {
+    fn to_index(&self) -> usize {
+        *self as usize
+    }
+}
 
-static NAME_DATA_1 : &'static str = "FIRSTSECONDTHIRD";
-static INDEX_DATA_1 : &'static [usize] = &[0,5,11,16];
+static NAME_DATA_1: &'static str = "FIRSTSECONDTHIRD";
+static INDEX_DATA_1: &'static [usize] = &[0, 5, 11, 16];
 
-static NAME_DATA_2 : &'static str = "FOURTHFIFTHSIXTHSEVENTH";
-static INDEX_DATA_2 : &'static [usize] = &[0,6,11,16,23];
+static NAME_DATA_2: &'static str = "FOURTHFIFTHSIXTHSEVENTH";
+static INDEX_DATA_2: &'static [usize] = &[0, 6, 11, 16, 23];
 
 
 #[test]
@@ -58,11 +66,10 @@ fn test1() {
 
 
 #[test]
-fn test2 () {
-    let tbl = StaticNameTable::new_upon
-        (NAME_DATA_2, INDEX_DATA_2,
-         StaticNameTable::new
-         (NAME_DATA_1, INDEX_DATA_1));
+fn test2() {
+    let tbl = StaticNameTable::new_upon(NAME_DATA_2,
+                                        INDEX_DATA_2,
+                                        StaticNameTable::new(NAME_DATA_1, INDEX_DATA_1));
 
     assert!(tbl.len() == 7);
     assert!(tbl.parent().is_some());
@@ -95,4 +102,3 @@ fn test2 () {
     assert!(tbl.index(NameEnum1::FIRST) == "FIRST");
     assert!(tbl.index(NameEnum2::FOURTH) == "FOURTH");
 }
-

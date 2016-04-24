@@ -7,7 +7,11 @@ enum NameEnum1 {
     THIRD = 2,
 }
 
-impl NameTableIdx for NameEnum1 { fn to_index(&self) -> usize { *self as usize } }
+impl NameTableIdx for NameEnum1 {
+    fn to_index(&self) -> usize {
+        *self as usize
+    }
+}
 
 #[repr(usize)]
 #[derive(Clone,Copy)]
@@ -17,20 +21,23 @@ enum NameEnum2 {
     SIXTH = 5,
 }
 
-impl NameTableIdx for NameEnum2 { fn to_index(&self) -> usize { *self as usize } }
+impl NameTableIdx for NameEnum2 {
+    fn to_index(&self) -> usize {
+        *self as usize
+    }
+}
 
-static NAME_DATA_1 : &'static str = "FIRSTSECONDTHIRD";
-static INDEX_DATA_1 : &'static [usize] = &[0,5,11,16];
+static NAME_DATA_1: &'static str = "FIRSTSECONDTHIRD";
+static INDEX_DATA_1: &'static [usize] = &[0, 5, 11, 16];
 
-static NAME_DATA_2 : &'static str = "FOURTHFIFTHSIXTHSEVENTH";
-static INDEX_DATA_2 : &'static [usize] = &[0,6,11,16,23];
+static NAME_DATA_2: &'static str = "FOURTHFIFTHSIXTHSEVENTH";
+static INDEX_DATA_2: &'static [usize] = &[0, 6, 11, 16, 23];
 
 #[test]
 fn test3() {
-    let static_tbl = StaticNameTable::new_upon
-        (NAME_DATA_2, INDEX_DATA_2,
-         StaticNameTable::new
-         (NAME_DATA_1, INDEX_DATA_1));
+    let static_tbl = StaticNameTable::new_upon(NAME_DATA_2,
+                                               INDEX_DATA_2,
+                                               StaticNameTable::new(NAME_DATA_1, INDEX_DATA_1));
     let mut tbl = DynamicNameTable::new_upon(static_tbl);
 
     assert!(tbl.len() == 7);

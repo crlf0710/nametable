@@ -1,13 +1,17 @@
 use nametable::*;
 
 #[derive(Clone,Copy)]
-    enum NameEnum1 {
-        FIRST = 0,
-        SECOND = 1,
-        THIRD = 2,
-    }
+enum NameEnum1 {
+    FIRST = 0,
+    SECOND = 1,
+    THIRD = 2,
+}
 
-impl NameTableIdx for NameEnum1 { fn to_index(&self) -> usize { *self as usize } }
+impl NameTableIdx for NameEnum1 {
+    fn to_index(&self) -> usize {
+        *self as usize
+    }
+}
 
 #[repr(usize)]
 #[derive(Clone,Copy)]
@@ -17,22 +21,26 @@ enum NameEnum2 {
     SIXTH = 5,
 }
 
-impl NameTableIdx for NameEnum2 { fn to_index(&self) -> usize { *self as usize } }
+impl NameTableIdx for NameEnum2 {
+    fn to_index(&self) -> usize {
+        *self as usize
+    }
+}
 
-static NAME_DATA_1 : &'static str = "FIRSTSECONDTHIRD";
-static INDEX_DATA_1 : &'static [usize] = &[0,5,11,16];
-static HASH_DATA_1 : &'static [(u64,usize)] = &[];
+static NAME_DATA_1: &'static str = "FIRSTSECONDTHIRD";
+static INDEX_DATA_1: &'static [usize] = &[0, 5, 11, 16];
+static HASH_DATA_1: &'static [(u64, usize)] = &[];
 
-static NAME_DATA_2 : &'static str = "FOURTHFIFTHSIXTHSEVENTH";
-static INDEX_DATA_2 : &'static [usize] = &[0,6,11,16,23];
-static mut HASH_DATA_HOLDER_2 : [(u64,usize);4] = [(0,0),(0,1),(0,2),(0,3)];
+static NAME_DATA_2: &'static str = "FOURTHFIFTHSIXTHSEVENTH";
+static INDEX_DATA_2: &'static [usize] = &[0, 6, 11, 16, 23];
+static mut HASH_DATA_HOLDER_2: [(u64, usize); 4] = [(0, 0), (0, 1), (0, 2), (0, 3)];
 
 use std::sync::{Once, ONCE_INIT};
 
 static START: Once = ONCE_INIT;
 
 #[test]
-fn test1 () {
+fn test1() {
     START.call_once(|| {
         unsafe {
             HASH_DATA_HOLDER_2[0].0 = name_hash("FOURTH");
@@ -42,12 +50,14 @@ fn test1 () {
             HASH_DATA_HOLDER_2.sort_by(|&(a, _), &(b, _)| a.cmp(&b));
         }
     });
-    let hash_data_2 : &'static [(u64,usize)]  = unsafe { &HASH_DATA_HOLDER_2 };
+    let hash_data_2: &'static [(u64, usize)] = unsafe { &HASH_DATA_HOLDER_2 };
 
-    let tbl = StaticHashedNameTable::new_upon
-        (NAME_DATA_2, INDEX_DATA_2, hash_data_2,
-         StaticHashedNameTable::new
-         (NAME_DATA_1, INDEX_DATA_1, HASH_DATA_1));
+    let tbl = StaticHashedNameTable::new_upon(NAME_DATA_2,
+                                              INDEX_DATA_2,
+                                              hash_data_2,
+                                              StaticHashedNameTable::new(NAME_DATA_1,
+                                                                         INDEX_DATA_1,
+                                                                         HASH_DATA_1));
 
     assert!(hash_data_2.len() == 4);
     let fourth_hash = name_hash("FOURTH");

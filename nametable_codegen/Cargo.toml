@@ -6,6 +6,11 @@ description = "Code generation for generating and managing lots of string litera
 repository = "http://github.com/crlf0710/nametable"
 license = "MIT"
 
+[lib]
+name = "nametable_codegen"
+path = "src/lib.rs"
+plugin = true
+
 [dependencies]
 nametable = "*"
 syntex = "*"

@@ -4,3 +4,4 @@ extern crate nametable;
 
 mod static_tests;
 mod dynamic_tests;
+mod hash_tests;

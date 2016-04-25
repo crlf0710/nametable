@@ -1,6 +1,6 @@
 [package]
 name = "nametable_codegen"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["CrLF0710 <crlf0710@gmail.com>"]
 description = "Code generation for generating and managing lots of string literals. Use this together with nametable."
 repository = "http://github.com/crlf0710/nametable"

@@ -1,23 +1,26 @@
-use syntex_syntax::codemap::{Span, respan, DUMMY_SP};
 
-use syntex_syntax::ptr::P;
+use syntax::codemap::{Span, respan, dummy_spanned, DUMMY_SP};
 
-use syntex_syntax::ast::{TokenTree, Name, Delimited, SyntaxContext, Expr, Ident, Item, Visibility,
+use syntax::ptr::P;
+
+use syntax::ast::{TokenTree, Name, Delimited, SyntaxContext, Expr, Ident, StrStyle, LitKind, Item, Visibility,
                   ItemKind, Generics, EnumDef, VariantData, Variant_, DUMMY_NODE_ID};
 
-use syntex_syntax::ext::base::{ExtCtxt, MacResult, MacEager};
-use syntex_syntax::ext::build::AstBuilder;
+use syntax::ext::base::{ExtCtxt, MacResult, MacEager};
+use syntax::ext::build::AstBuilder;
 
-use syntex_syntax::parse::parser::Parser;
-use syntex_syntax::parse::token::{Token, DelimToken, Lit,
+use syntax::parse::parser::Parser;
+use syntax::parse::token::{Token, DelimToken, Lit,
                            intern, intern_and_get_ident};
-use syntex_syntax::parse::token::keywords::Keyword;
+use syntax::parse::token::keywords::Keyword;
 
-use syntex_syntax::util::small_vector::SmallVector;
+use syntax::util::small_vector::SmallVector;
 
 struct MyLiteralArray<T>(Vec<T>);
 
-use syntax::ext::quote::rt::ToTokens;
+struct MyLiteralString(String);
+
+use quasi::ToTokens;
 use std::rc::Rc;
 impl<T: ToTokens> ToTokens for MyLiteralArray<T> {
     fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
@@ -35,6 +38,14 @@ impl<T: ToTokens> ToTokens for MyLiteralArray<T> {
         })));
         r
     }
+}
+
+impl ToTokens for MyLiteralString {
+    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
+		let lit = LitKind::Str(
+			intern_and_get_ident(&self.0), StrStyle::Cooked);
+        dummy_spanned(lit).to_tokens(_cx)
+	}
 }
 
 fn to_pub_item(mut item: Item) -> Item {
@@ -59,7 +70,7 @@ fn generate_nametable_item<'cx>(
 
     {
         // use
-        mod_items.push(quote_item!(cx, use ::nametable::nametable::{NameTable, StaticNameTable, DynamicNameTable, NameTableIdx};).unwrap());
+        mod_items.push(quote_item!(cx, use ::nametable::{NameTable, StaticNameTable, DynamicNameTable, NameTableIdx};).unwrap());
     }
 
     {
@@ -105,11 +116,11 @@ fn generate_nametable_item<'cx>(
 
     {
         //data
-        let mut name_data : String = String::new();
+        let mut name_data : MyLiteralString = MyLiteralString(String::new());
         let mut index_data : MyLiteralArray<usize> = MyLiteralArray(vec!(0));
         for (_,&(_, value)) in artifact_items.iter().enumerate() {
-            name_data.push_str(&*value.as_str());
-            index_data.0.push(name_data.len());
+            name_data.0.push_str(&*value.as_str());
+            index_data.0.push(name_data.0.len());
         }
         mod_items.push(quote_item!(
             cx,

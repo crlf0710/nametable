@@ -3,7 +3,7 @@ use syntax::codemap::{Span, respan, dummy_spanned, DUMMY_SP};
 
 use syntax::ptr::P;
 
-use syntax::ast::{TokenTree, Name, Delimited, SyntaxContext, Expr, Ident, StrStyle, LitKind, Item, Visibility,
+use syntax::ast::{TokenTree, Name, Delimited, SyntaxContext, Ident, StrStyle, LitKind, Item, Visibility,
                   ItemKind, Generics, EnumDef, VariantData, Variant_,
                   Path, PathSegment, PathParameters, DUMMY_NODE_ID};
 
@@ -107,7 +107,7 @@ fn generate_nametable_item<'cx>(
     base_artifact_path: Option<Path>,
     artifact_items: Vec<(Name, Name)>) -> P<Item> {
 
-    let mod_attributes = Vec::new();
+    let mut mod_attributes = Vec::new();
     let mut mod_items = Vec::new();
 
     let base_artifact_path = base_artifact_path.map(
@@ -132,10 +132,8 @@ fn generate_nametable_item<'cx>(
         // const INITIAL
         if let Some(ref path) = base_artifact_path {
             mod_items.push(cx.item_use_simple(DUMMY_SP, Visibility::Inherited, path.clone()));
-//            mod_items.push(quote_item!(cx, use $path; ).unwrap());
             let base_artifact_initial = add_suffix_to_path(path, Ident::new(intern("INITIAL"), sc));
             let base_artifact_count = add_suffix_to_path(path, Ident::new(intern("COUNT"), sc));
-            //            mod_items.push(quote_item!(cx, const INITIAL : usize = $path::INITIAL + $path::COUNT; ).unwrap());
             mod_items.push(quote_item!(cx, pub const INITIAL : usize = $base_artifact_initial + $base_artifact_count; ).unwrap());
         } else {
             mod_items.push(quote_item!(cx, pub const INITIAL : usize = 0usize; ).unwrap());
@@ -304,12 +302,22 @@ fn generate_nametable_item<'cx>(
         ).unwrap());
     }
         }
-
-        let base_artifact_new = base_artifact_path.map(|path| {
-            add_suffix_to_path(&path, Ident::new(intern("new"), sc))
-        });
     }
 
+	{
+	    let allow_unused_attribute = cx.attribute(
+            sp, cx.meta_list(sp, intern_and_get_ident("allow"),
+                             vec!(cx.meta_word(sp, intern_and_get_ident("dead_code")))));
+
+        let allow_unused_imports_attribute = cx.attribute(
+            sp, cx.meta_list(sp, intern_and_get_ident("allow"),
+                             vec!(cx.meta_word(sp, intern_and_get_ident("unused_imports")))));
+							 
+		mod_attributes.push(allow_unused_attribute);
+		mod_attributes.push(allow_unused_imports_attribute);
+	}
+
+	
     let result = cx.item_mod(sp, sp, Ident::new(artifact_name, sc), mod_attributes, mod_items);
 
     return result;

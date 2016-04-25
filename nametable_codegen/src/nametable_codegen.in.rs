@@ -112,10 +112,18 @@ fn generate_nametable_item<'cx>(
     let mut mod_items = Vec::new();
 
     let base_artifact_path = base_artifact_path.map(
-        |path: Path| if path.global {
-            path
+        |path: Path|
+        if path.segments.len() > 0 {
+            let initial_segment_name =
+                path.segments[0].identifier.name.as_str();
+            if initial_segment_name == "self" ||
+                initial_segment_name == "super" {
+                    add_prefix_to_path(Ident::new(intern("super"), sc), &path)
+                } else {
+                    path
+                }
         } else {
-            add_prefix_to_path(Ident::new(intern("super"), sc), &path)
+            path
         }
     );
 

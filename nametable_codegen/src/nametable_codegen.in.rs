@@ -3,7 +3,8 @@ use syntax::codemap::{Span, respan, dummy_spanned, DUMMY_SP};
 
 use syntax::ptr::P;
 
-use syntax::ast::{TokenTree, Name, Delimited, SyntaxContext, Ident, StrStyle, LitKind, Item, Visibility,
+use syntax::ast::{TokenTree, Name, Delimited, SyntaxContext, Ident,
+                  StrStyle, LitKind, Item, Visibility, Mod,
                   ItemKind, Generics, EnumDef, VariantData, Variant_,
                   Path, PathSegment, PathParameters, DUMMY_NODE_ID};
 
@@ -278,49 +279,56 @@ fn generate_nametable_item<'cx>(
                         }
                 ).unwrap());
 
-        mod_items.push(quote_item!(
-            cx,
-            pub fn new_dynamic<'x>() -> DynamicNameTable<'x> {
-                DynamicNameTable::new_upon(
-                    StaticHashedNameTable::new(NAME_DATA, INDEX_DATA, HASH_DATA))
-            }
-        ).unwrap());
+                mod_items.push(quote_item!(
+                    cx,
+                    pub fn new_dynamic<'x>() -> DynamicNameTable<'x> {
+                        DynamicNameTable::new_upon(
+                            StaticHashedNameTable::new(NAME_DATA, INDEX_DATA, HASH_DATA))
+                    }
+                ).unwrap());
 
-        mod_items.push(quote_item!(
-            cx,
-            pub fn new_plain_<'x>() -> StaticNameTable<'x> {
-                StaticNameTable::new(NAME_DATA, INDEX_DATA)
-            }
-        ).unwrap());
+                mod_items.push(quote_item!(
+                    cx,
+                    pub fn new_plain_<'x>() -> StaticNameTable<'x> {
+                        StaticNameTable::new(NAME_DATA, INDEX_DATA)
+                    }
+                ).unwrap());
 
-        mod_items.push(quote_item!(
-            cx,
-            pub fn new_dynamic_plain<'x>() -> DynamicNameTable<'x> {
-                DynamicNameTable::new_upon(
-                    StaticNameTable::new(NAME_DATA, INDEX_DATA))
+                mod_items.push(quote_item!(
+                    cx,
+                    pub fn new_dynamic_plain<'x>() -> DynamicNameTable<'x> {
+                        DynamicNameTable::new_upon(
+                            StaticNameTable::new(NAME_DATA, INDEX_DATA))
+                    }
+                ).unwrap());
             }
-        ).unwrap());
-    }
         }
     }
 
-	{
-	    let allow_unused_attribute = cx.attribute(
+      {
+          let allow_unused_attribute = cx.attribute(
             sp, cx.meta_list(sp, intern_and_get_ident("allow"),
                              vec!(cx.meta_word(sp, intern_and_get_ident("dead_code")))));
 
         let allow_unused_imports_attribute = cx.attribute(
             sp, cx.meta_list(sp, intern_and_get_ident("allow"),
                              vec!(cx.meta_word(sp, intern_and_get_ident("unused_imports")))));
-							 
-		mod_attributes.push(allow_unused_attribute);
-		mod_attributes.push(allow_unused_imports_attribute);
-	}
 
-	
-    let result = cx.item_mod(sp, sp, Ident::new(artifact_name, sc), mod_attributes, mod_items);
+            mod_attributes.push(allow_unused_attribute);
+            mod_attributes.push(allow_unused_imports_attribute);
+      }
 
-    return result;
+    P(Item {
+        ident: Ident::new(artifact_name, sc),
+        attrs: mod_attributes,
+        id: DUMMY_NODE_ID,
+        node: ItemKind::Mod(Mod {
+            inner: sp,
+            items: mod_items,
+        }),
+        vis: Visibility::Public,
+        span: sp,
+    })
 }
 
 fn process_nametables<'cx>(cx: &'cx mut ExtCtxt, sp: Span, mut parser: Parser) -> SmallVector<P<Item>> {

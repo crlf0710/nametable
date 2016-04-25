@@ -2,7 +2,7 @@
 name = "nametable"
 version = "0.1.0"
 authors = ["CrLF0710 <crlf0710@gmail.com>"]
-description = "A library for collecting and managing lots of string literals. Use this together with nametable_macros."
+description = "A library for collecting and managing lots of string literals. Use this together with nametable_codegen."
 repository = "http://github.com/crlf0710/nametable"
 license = "MIT"
 

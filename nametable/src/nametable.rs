@@ -101,9 +101,6 @@ impl StaticNameTable {
         };
     }
 
-    pub fn index<'x, T: NameTableIdx>(&'x self, idx: T) -> &'x str {
-        &self.at(idx.to_index())
-    }
 }
 
 pub struct DynamicNameTable {
@@ -155,9 +152,6 @@ impl DynamicNameTable {
             .unwrap()
     }
 
-    pub fn index<'x, T: NameTableIdx>(&'x self, idx: T) -> &'x str {
-        &self.at(idx.to_index())
-    }
 }
 
 
@@ -252,5 +246,39 @@ impl NameTable for StaticHashedNameTable {
         } else {
             self.find_local_fallback(name)
         }
+    }
+}
+
+use std::ops::Index;
+
+impl<T: NameTableIdx> Index<T> for NameTable {
+    type Output = str;
+
+    fn index<'a>(&'a self, _index: T) -> &'a str {
+        self.at(_index.to_index())
+    }
+}
+
+impl<T: NameTableIdx> Index<T> for StaticNameTable {
+    type Output = str;
+
+    fn index<'a>(&'a self, _index: T) -> &'a str {
+        self.at(_index.to_index())
+    }
+}
+
+impl<T: NameTableIdx> Index<T> for DynamicNameTable {
+    type Output = str;
+
+    fn index<'a>(&'a self, _index: T) -> &'a str {
+        self.at(_index.to_index())
+    }
+}
+
+impl<T: NameTableIdx> Index<T> for StaticHashedNameTable {
+    type Output = str;
+
+    fn index<'a>(&'a self, _index: T) -> &'a str {
+        self.at(_index.to_index())
     }
 }

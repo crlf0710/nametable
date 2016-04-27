@@ -60,8 +60,11 @@ fn test1() {
     assert!(tbl.find("THIRD").unwrap() == 2);
     assert!(tbl.find("UNEXIST").is_none());
 
-    assert!(tbl.index(0) == "FIRST");
-    assert!(tbl.index(NameEnum1::FIRST) == "FIRST");
+    assert!(&tbl[0] == "FIRST");
+    assert!(&tbl[NameEnum1::FIRST] == "FIRST");
+
+    assert!(&tbl[0] == "FIRST");
+    assert!(&tbl[NameEnum1::FIRST] == "FIRST");
 }
 
 
@@ -98,7 +101,7 @@ fn test2() {
     assert!(tbl.find("SEVENTH").unwrap() == 6);
     assert!(tbl.find("UNEXIST").is_none());
 
-    assert!(tbl.index(0) == "FIRST");
-    assert!(tbl.index(NameEnum1::FIRST) == "FIRST");
-    assert!(tbl.index(NameEnum2::FOURTH) == "FOURTH");
+    assert!(&tbl[0] == "FIRST");
+    assert!(&tbl[NameEnum1::FIRST] == "FIRST");
+    assert!(&tbl[NameEnum2::FOURTH] == "FOURTH");
 }

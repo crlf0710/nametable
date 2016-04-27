@@ -251,13 +251,13 @@ fn generate_nametable_item<'cx>(
                 mod_items.push(
                     quote_item!(
                         cx,
-                        pub fn new<'x>() -> StaticHashedNameTable<'x> {
+                        pub fn new() -> StaticHashedNameTable {
                             StaticHashedNameTable::new_upon(NAME_DATA, INDEX_DATA, HASH_DATA, $base_artifact_new())
                         }).unwrap());
 
                 mod_items.push(quote_item!(
                     cx,
-                    pub fn new_dynamic<'x>() -> DynamicNameTable<'x> {
+                    pub fn new_dynamic() -> DynamicNameTable {
                         DynamicNameTable::new_upon(
                             StaticHashedNameTable::new_upon(NAME_DATA, INDEX_DATA, HASH_DATA, $base_artifact_new()))
                     }
@@ -265,14 +265,14 @@ fn generate_nametable_item<'cx>(
 
                 mod_items.push(quote_item!(
                     cx,
-                    pub fn new_plain_<'x>() -> StaticNameTable<'x> {
+                    pub fn new_plain() -> StaticNameTable {
                         StaticNameTable::new_upon(NAME_DATA, INDEX_DATA, $base_artifact_new())
                     }
                 ).unwrap());
 
                 mod_items.push(quote_item!(
                     cx,
-                    pub fn new_dynamic_plain<'x>() -> DynamicNameTable<'x> {
+                    pub fn new_dynamic_plain() -> DynamicNameTable {
                         DynamicNameTable::new_upon(
                             StaticNameTable::new_upon(NAME_DATA, INDEX_DATA, $base_artifact_new()))
                     }
@@ -282,14 +282,14 @@ fn generate_nametable_item<'cx>(
             None => {
                 mod_items.push(quote_item!(
                         cx,
-                        pub fn new<'x>() -> StaticHashedNameTable<'x> {
+                        pub fn new() -> StaticHashedNameTable {
                             StaticHashedNameTable::new(NAME_DATA, INDEX_DATA, HASH_DATA)
                         }
                 ).unwrap());
 
                 mod_items.push(quote_item!(
                     cx,
-                    pub fn new_dynamic<'x>() -> DynamicNameTable<'x> {
+                    pub fn new_dynamic() -> DynamicNameTable {
                         DynamicNameTable::new_upon(
                             StaticHashedNameTable::new(NAME_DATA, INDEX_DATA, HASH_DATA))
                     }
@@ -297,14 +297,14 @@ fn generate_nametable_item<'cx>(
 
                 mod_items.push(quote_item!(
                     cx,
-                    pub fn new_plain_<'x>() -> StaticNameTable<'x> {
+                    pub fn new_plain() -> StaticNameTable {
                         StaticNameTable::new(NAME_DATA, INDEX_DATA)
                     }
                 ).unwrap());
 
                 mod_items.push(quote_item!(
                     cx,
-                    pub fn new_dynamic_plain<'x>() -> DynamicNameTable<'x> {
+                    pub fn new_dynamic_plain() -> DynamicNameTable {
                         DynamicNameTable::new_upon(
                             StaticNameTable::new(NAME_DATA, INDEX_DATA))
                     }

@@ -1,7 +1,8 @@
-use std::hash::{Hash, Hasher, SipHasher};
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 
 pub fn name_hash(str_: &str) -> u64 {
-    let mut hasher = SipHasher::new();
+    let mut hasher = DefaultHasher::new();
     str_.hash(&mut hasher);
     hasher.finish()
 }

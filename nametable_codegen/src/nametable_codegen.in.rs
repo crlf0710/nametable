@@ -3,18 +3,24 @@ use syntax::codemap::{Span, respan, dummy_spanned, DUMMY_SP};
 
 use syntax::ptr::P;
 
-use syntax::ast::{TokenTree, Name, Delimited, SyntaxContext, Ident,
+use syntax::tokenstream::{TokenTree, Delimited};
+
+use syntax::ext::hygiene::SyntaxContext;
+
+use syntax::ast::{Name, Ident,
                   StrStyle, LitKind, Item, Visibility, Mod,
                   ItemKind, Generics, EnumDef, VariantData, Variant_,
-                  Path, PathSegment, PathParameters, DUMMY_NODE_ID};
+                  Path, PathSegment, DUMMY_NODE_ID,
+                  MetaItem, NestedMetaItem, NestedMetaItemKind};
 
 use syntax::ext::base::{ExtCtxt, MacResult, MacEager};
 use syntax::ext::build::AstBuilder;
 
-use syntax::parse::parser::{Parser, PathParsingMode};
-use syntax::parse::token::{Token, DelimToken, Lit,
-                           intern, intern_and_get_ident};
-use syntax::parse::token::keywords::Keyword;
+use syntax::parse::parser::{Parser, PathStyle};
+use syntax::parse::token::{Token, DelimToken, Lit};
+
+use syntax::symbol::Symbol;
+use syntax::symbol::keywords;
 
 use syntax::util::small_vector::SmallVector;
 
@@ -36,9 +42,7 @@ impl<T: ToTokens> ToTokens for MyLiteralArray<T> {
         }
         r.push(TokenTree::Delimited(DUMMY_SP, Rc::new(Delimited {
             delim: DelimToken::Bracket,
-            open_span: DUMMY_SP,
             tts: r_inner,
-            close_span: DUMMY_SP,
         })));
         r
     }
@@ -47,7 +51,7 @@ impl<T: ToTokens> ToTokens for MyLiteralArray<T> {
 impl ToTokens for MyLiteralString {
     fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
 		let lit = LitKind::Str(
-			intern_and_get_ident(&self.0), StrStyle::Cooked);
+			Symbol::intern(&self.0), StrStyle::Cooked);
         dummy_spanned(lit).to_tokens(_cx)
 	}
 }
@@ -61,12 +65,14 @@ impl<T1: ToTokens, T2: ToTokens> ToTokens for MyLiteralTuple2<T1, T2> {
         r_inner.append(&mut self.1.to_tokens(_cx));
         r.push(TokenTree::Delimited(DUMMY_SP, Rc::new(Delimited {
             delim: DelimToken::Paren,
-            open_span: DUMMY_SP,
             tts: r_inner,
-            close_span: DUMMY_SP,
         })));
         r
     }
+}
+
+fn new_ident(name: Symbol, ctxt: SyntaxContext) -> Ident {
+    Ident { name: name, ctxt: ctxt }
 }
 
 fn to_pub_item(mut item: Item) -> Item {
@@ -83,7 +89,7 @@ fn add_suffix_to_path(prefix: &Path, suffix: Ident) -> Path {
     result.segments.push(
         PathSegment {
             identifier: suffix,
-            parameters: PathParameters::none(),
+            parameters: None,
         }
     );
     result
@@ -94,10 +100,14 @@ fn add_prefix_to_path(prefix: Ident, suffix: &Path) -> Path {
     result.segments.insert(0,
         PathSegment {
             identifier: prefix,
-            parameters: PathParameters::none(),
+            parameters: None,
         }
     );
     result
+}
+
+fn dummy_spanned_nested_metaitem(x: MetaItem) -> NestedMetaItem {
+    dummy_spanned(NestedMetaItemKind::MetaItem(x))
 }
 
 fn generate_nametable_item<'cx>(
@@ -116,9 +126,9 @@ fn generate_nametable_item<'cx>(
         if path.segments.len() > 0 {
             let initial_segment_name =
                 path.segments[0].identifier.name.as_str();
-            if initial_segment_name == "self" ||
-                initial_segment_name == "super" {
-                    add_prefix_to_path(Ident::new(intern("super"), sc), &path)
+            if initial_segment_name == Symbol::intern("self").as_str() ||
+                initial_segment_name == Symbol::intern("super").as_str() {
+                    add_prefix_to_path(new_ident(Symbol::intern("super"), sc), &path)
                 } else {
                     path
                 }
@@ -141,8 +151,8 @@ fn generate_nametable_item<'cx>(
         // const INITIAL
         if let Some(ref path) = base_artifact_path {
             mod_items.push(cx.item_use_simple(DUMMY_SP, Visibility::Inherited, path.clone()));
-            let base_artifact_initial = add_suffix_to_path(path, Ident::new(intern("INITIAL"), sc));
-            let base_artifact_count = add_suffix_to_path(path, Ident::new(intern("COUNT"), sc));
+            let base_artifact_initial = add_suffix_to_path(path, new_ident(Symbol::intern("INITIAL"), sc));
+            let base_artifact_count = add_suffix_to_path(path, new_ident(Symbol::intern("COUNT"), sc));
             mod_items.push(quote_item!(cx, pub const INITIAL : usize = $base_artifact_initial + $base_artifact_count; ).unwrap());
         } else {
             mod_items.push(quote_item!(cx, pub const INITIAL : usize = 0usize; ).unwrap());
@@ -154,11 +164,11 @@ fn generate_nametable_item<'cx>(
 
     {
         // enum Names
-        let ident_names = Ident::new(intern("Names"), sc);
+        let ident_names = new_ident(Symbol::intern("Names"), sc);
 
         let mut enumdef = EnumDef { variants: Vec::new() };
         for (idx,&(key, _)) in artifact_items.iter().enumerate() {
-            let ident_key = Ident::new(key, sc);
+            let ident_key = new_ident(key, sc);
             enumdef.variants.push(respan(sp, Variant_ {
                 name: ident_key,
                 attrs: Vec::new(),
@@ -168,13 +178,13 @@ fn generate_nametable_item<'cx>(
         }
 
         let repr_attribute = cx.attribute(
-            sp, cx.meta_list(sp, intern_and_get_ident("repr"),
-                             vec!(cx.meta_word(sp, intern_and_get_ident("usize")))));
+            sp, cx.meta_list(sp, Symbol::intern("repr"),
+                             vec!(dummy_spanned_nested_metaitem(cx.meta_word(sp, Symbol::intern("usize"))))));
 
         let derive_attribute = cx.attribute(
-            sp, cx.meta_list(sp, intern_and_get_ident("derive"),
-                             vec!(cx.meta_word(sp, intern_and_get_ident("Copy")),
-                                  cx.meta_word(sp, intern_and_get_ident("Clone")))));
+            sp, cx.meta_list(sp, Symbol::intern("derive"),
+                             vec!(dummy_spanned_nested_metaitem(cx.meta_word(sp, Symbol::intern("Copy"))),
+                                  dummy_spanned_nested_metaitem(cx.meta_word(sp, Symbol::intern("Clone"))))));
         mod_items.push(to_pub_item_ptr(
             cx.item(sp, ident_names,
                     vec!(repr_attribute, derive_attribute),
@@ -247,7 +257,7 @@ fn generate_nametable_item<'cx>(
         //functions
         match base_artifact_path {
             Some(ref path) => {
-                let base_artifact_new = add_suffix_to_path(&path, Ident::new(intern("new"), sc));
+                let base_artifact_new = add_suffix_to_path(&path, new_ident(Symbol::intern("new"), sc));
                 mod_items.push(
                     quote_item!(
                         cx,
@@ -315,19 +325,19 @@ fn generate_nametable_item<'cx>(
 
       {
           let allow_unused_attribute = cx.attribute(
-            sp, cx.meta_list(sp, intern_and_get_ident("allow"),
-                             vec!(cx.meta_word(sp, intern_and_get_ident("dead_code")))));
+            sp, cx.meta_list(sp, Symbol::intern("allow"),
+                             vec!(dummy_spanned_nested_metaitem(cx.meta_word(sp, Symbol::intern("dead_code"))))));
 
         let allow_unused_imports_attribute = cx.attribute(
-            sp, cx.meta_list(sp, intern_and_get_ident("allow"),
-                             vec!(cx.meta_word(sp, intern_and_get_ident("unused_imports")))));
+            sp, cx.meta_list(sp, Symbol::intern("allow"),
+                             vec!(dummy_spanned_nested_metaitem(cx.meta_word(sp, Symbol::intern("unused_imports"))))));
 
             mod_attributes.push(allow_unused_attribute);
             mod_attributes.push(allow_unused_imports_attribute);
       }
 
     P(Item {
-        ident: Ident::new(artifact_name, sc),
+        ident: new_ident(artifact_name, sc),
         attrs: mod_attributes,
         id: DUMMY_NODE_ID,
         node: ItemKind::Mod(Mod {
@@ -343,8 +353,8 @@ fn process_nametables<'cx>(cx: &'cx mut ExtCtxt, sp: Span, mut parser: Parser) -
     let mut result : Vec<P<Item>> = Vec::new();
 
     while &parser.token != &Token::Eof {
-        let syntax_ctx = if let Token::Ident(nt_keyword, _) = parser.token {
-            if nt_keyword.name.as_str() != "nametable" {
+        let syntax_ctx = if let Token::Ident(nt_keyword) = parser.token {
+            if nt_keyword.name != Symbol::intern("nametable") {
                 cx.span_fatal(parser.span, "expected keyword `nametable' here.");
             }
             let _ = parser.bump();
@@ -354,7 +364,7 @@ fn process_nametables<'cx>(cx: &'cx mut ExtCtxt, sp: Span, mut parser: Parser) -
             cx.span_fatal(parser.span, "expected keyword `nametable' here.");
         };
 
-        let artifact_name = if let Token::Ident(artifact_name, _) = parser.token {
+        let artifact_name = if let Token::Ident(artifact_name) = parser.token {
             let _ = parser.bump();
             artifact_name.name
         }
@@ -363,7 +373,7 @@ fn process_nametables<'cx>(cx: &'cx mut ExtCtxt, sp: Span, mut parser: Parser) -
         };
 
         let base_artifact_path = if parser.eat(&Token::Colon) {
-            let result = parser.parse_path(PathParsingMode::NoTypesAllowed);
+            let result = parser.parse_path(PathStyle::Expr);
             match result{
                 Ok(path) => Some(path),
                 _ => cx.span_fatal(parser.span, "expected base nametable name here."),
@@ -378,9 +388,9 @@ fn process_nametables<'cx>(cx: &'cx mut ExtCtxt, sp: Span, mut parser: Parser) -
 
         let mut artifact_items : Vec<(Name, Name)> = Vec::new();
 
-        while let Token::Ident(item_name, _) = parser.token {
+        while let Token::Ident(item_name) = parser.token {
             let _ = parser.bump();
-            let item_string = if parser.token.is_keyword(Keyword::For) {
+            let item_string = if parser.token.is_keyword(keywords::For) {
                 let _ = parser.bump();
                 if let Token::Literal(Lit::Str_(item_string_name), _) = parser.token {
                     let _ = parser.bump();

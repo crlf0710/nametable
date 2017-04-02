@@ -5,12 +5,12 @@ authors = ["CrLF0710 <crlf0710@gmail.com>"]
 build = "build.rs"
 
 [dependencies]
-nametable = { version = "0.1.1", path = "../nametable"}
+nametable = { path = "../nametable"}
 
 [build-dependencies]
-syntex = "0.31.0"
-syntex_syntax = "0.31.0"
-nametable_codegen = { version = "0.1.2", path = "../nametable_codegen"}
+syntex = "0.57.0"
+syntex_syntax = "0.57.0"
+nametable_codegen = { path = "../nametable_codegen"}
 
 [[test]]
 name = "test"

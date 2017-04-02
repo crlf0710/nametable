@@ -1,6 +1,6 @@
 [package]
 name = "nametable_codegen"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["CrLF0710 <crlf0710@gmail.com>"]
 description = "Code generation for generating and managing lots of string literals. Use this together with nametable."
 repository = "http://github.com/crlf0710/nametable"
@@ -16,7 +16,7 @@ default = ["with-syntex"]
 with-syntex = ["quasi/with-syntex", "quasi_codegen", "quasi_codegen/with-syntex", "syntex", "syntex_syntax"]
 
 [dependencies]
-nametable = "0.1.1"
+nametable = "0.1.2"
 syntex = {version = "0.57.0", optional = true}
 syntex_syntax = {version = "0.57.0", optional = true}
 quasi = {version = "0.31.0", optional = true}
